@@ -1,0 +1,20 @@
+version: '3'
+services:
+  aiohttp:
+    build: .
+    stdin_open: true
+    tty: true
+    ports:
+    - "8089:8089"
+    volumes:
+    - /home/miguel/dev/python3.6-projects/asyncio-1:/usr/src/app
+    links:
+    - db
+  db:
+    image: mongo
+    ports:
+    - "27017:27017"
+    volumes:
+    - '../data:/data/db'
+
+
