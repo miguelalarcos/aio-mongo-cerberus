@@ -1,12 +1,49 @@
 import asyncio
 from aiohttp import web
+import websockets
+from msdp import sdp, method, sub, get_connection
+from rethinkdb import r
 from cerberus import Validator
 import jwt
 from flatten_dict import flatten
 import motor.motor_asyncio
 from bson import ObjectId
+import os
+#from dotenv import load_dotenv 
+#load_dotenv()
 
-client = motor.motor_asyncio.AsyncIOMotorClient('db', 27017)
+r.set_loop_type("asyncio")
+
+DB = os.getenv("DB")
+RT = os.getenv("RT")
+
+ALLOWED_HEADERS = ','.join((
+    'content-type',
+    'accept',
+    'origin',
+    'authorization',
+    'x-requested-with',
+    'x-csrftoken',
+    ))
+
+def set_cors_headers (request, response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+    #response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
+
+async def cors_factory (app, handler):
+    async def cors_handler (request):
+        # preflight requests
+        if request.method == 'OPTIONS':
+            return set_cors_headers(request, web.Response())
+        else:
+            response = await handler(request)
+            return set_cors_headers(request, response)
+    return cors_handler
+
+client = motor.motor_asyncio.AsyncIOMotorClient(DB, 27017)
 db = client.test
 
 def point_reducer(k1, k2):
@@ -16,10 +53,10 @@ def point_reducer(k1, k2):
         return k1 + "." + k2
 
 
-headers = {}
-headers['Access-Control-Allow-Origin'] = '*'
-headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
-headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'        
+#headers = {}
+#headers['Access-Control-Allow-Origin'] = '*'
+#headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+#headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'        
 
 schema = {'name': {'type': 'string'}, 
           'contact': {
@@ -49,8 +86,8 @@ def validate(f):
             document['__owner'] = payload['user']   
             return await f(document, request, payload)
         else:
-            #print('***************', validator.errors)
-            return web.json_response({'error': 'not valid document'}, headers=headers) 
+            #return web.json_response({'error': 'not valid document'}, headers=headers) 
+            return {'error': 'not valid document'}
     return helper
 
 def has_role(role):
@@ -68,7 +105,6 @@ def is_owner(f):
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         old_doc = await db[col].find_one({'_id': ObjectId(_id)})
-        #old_doc = {"name": "oki", "__owner": "miguel"}   
         if payload['user'] == old_doc["__owner"]:
             return await f(request, payload)
         else:
@@ -96,17 +132,18 @@ def update(f):
 def json_response(f):
     async def helper(document, *args):
         await f(document, *args)
-        return web.json_response(document, headers=headers)
+        return web.json_response(document)#, headers=headers)
     return helper
 
 async def handle(loop):
-    app = web.Application(loop=loop)
+    app = web.Application(loop=loop, middlewares=[cors_factory])
     routes = web.RouteTableDef()
 
     @routes.post('/test')
     @jwt_auth
+    @json_response
     async def handle_post_test(document, *args):
-        return web.json_response({'test': 'ok'}, headers=headers)
+        return {'test': 'ok'}
 
     @routes.post('/{col}')
     @jwt_auth
@@ -127,10 +164,26 @@ async def handle(loop):
 
     app.router.add_routes(routes)
     await loop.create_server(app.make_handler(), '0.0.0.0', 8089)
-    
+
+@method
+async def add(user, a, b):
+    return a + b
+
+@method
+async def increment(user, id, value):
+    connection = await get_connection()
+    await r.table('test').get(id).update({"x": r.row["x"]+value}).run(connection)
+
+@sub
+def x_less_than(user, max):
+    return r.table('test').filter(lambda row: (row['x'] < max))
+    #return r.table('test').filter(lambda row: (row['x'] < max) & (row['user_id'] == user.id))
+
 def main():    
     loop = asyncio.get_event_loop()
     loop.run_until_complete(handle(loop))
-    print("Server started at http://0.0.0.0:8089")
+    print("Server started at port 8089")
+    loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888))
+    print("Real time server started at port 8888")
     loop.run_forever()
     loop.close()
