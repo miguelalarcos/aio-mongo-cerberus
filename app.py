@@ -114,9 +114,10 @@ def is_owner(f):
 def insert(f):
     async def helper(document, request, payload):
         col = request.match_info.get('col')
+        document = await f(document, request, payload)
         result = await db[col].insert_one(document)
         document['_id'] = str(result.inserted_id)
-        return await f(document, request, payload)
+        return document #await f(document, request, payload)
     return helper
 
 def update(f):
@@ -130,14 +131,21 @@ def update(f):
     return helper
 
 def json_response(f):
-    async def helper(document, *args):
-        await f(document, *args)
+    async def helper(document, request, payload):
+        document = await f(document, request, payload)
         return web.json_response(document)#, headers=headers)
     return helper
 
 async def handle(loop):
     app = web.Application(loop=loop, middlewares=[cors_factory])
     routes = web.RouteTableDef()
+
+    @routes.post('/login')
+    @json_response
+    def login(request):
+        body = await request.json()
+        print('body:', body)
+        return {'login': 'ok'}
 
     @routes.post('/test')
     @jwt_auth
@@ -150,8 +158,8 @@ async def handle(loop):
     @validate
     @insert
     @json_response
-    async def handle_post(document, *args):
-        print(document)       
+    async def handle_post(document, request, payload):
+        return document       
     
     @routes.put('/{col}/{_id}')
     @jwt_auth
@@ -159,11 +167,11 @@ async def handle(loop):
     @validate
     @update
     @json_response
-    async def handle_put(document, *args):      
-        print(document)
+    async def handle_put(document, request, payload):      
+        return document
 
     app.router.add_routes(routes)
-    await loop.create_server(app.make_handler(), '0.0.0.0', 8089)
+    await loop.create_server(app.make_handler(), '0.0.0.0', 8089, ssl=None)
 
 @method
 async def add(user, a, b):
@@ -183,7 +191,7 @@ def main():
     loop = asyncio.get_event_loop()
     loop.run_until_complete(handle(loop))
     print("Server started at port 8089")
-    loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888))
+    loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888, ssl=None))
     print("Real time server started at port 8888")
     loop.run_forever()
     loop.close()
