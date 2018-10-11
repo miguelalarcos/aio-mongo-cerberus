@@ -83,7 +83,21 @@ def validate(f):
         validator = validators[col]
         document = await request.json()             
         if validator.validate(document):
-            document['__owner'] = payload['user']   
+            #document['__owner'] = payload['user']   
+            return await f(document, request, payload)
+        else:
+            #return web.json_response({'error': 'not valid document'}, headers=headers) 
+            return {'error': 'not valid document'}
+    return helper
+
+def validate_push(f):
+    async def helper(request, payload):
+        col = request.match_info.get('col')
+        attr = request.match_info.get('push')
+        validator = validators[attr]
+        document = await request.json()             
+        if validator.validate(document):
+            #document['__owner'] = payload['user']   
             return await f(document, request, payload)
         else:
             #return web.json_response({'error': 'not valid document'}, headers=headers) 
@@ -111,10 +125,18 @@ def is_owner(f):
             return {'error': 'not authorized'}
     return helper
 
+def get(f):
+    async def helper(request, payload):
+        _id = request.match_info.get('_id')
+        col = request.match_info.get('col')
+        return f(await db[col].find_one({'_id': ObjectId(_id)}))
+    return helper
+
 def insert(f):
     async def helper(document, request, payload):
         col = request.match_info.get('col')
         document = await f(document, request, payload)
+        document['__owner'] = payload['user']   
         result = await db[col].insert_one(document)
         document['_id'] = str(result.inserted_id)
         return document #await f(document, request, payload)
@@ -130,6 +152,15 @@ def update(f):
         return await f(original, request, payload)
     return helper
 
+def push(f):
+    async def helper(document, request, payload):
+        _id = request.match_info.get('_id')
+        col = request.match_info.get('col')
+        attr = request.match_info.get('push')
+        await db[col].update_one({'_id': ObjectId(_id)}, {'$push': {[attr]: document}})        
+        return await f(document, request, payload)
+    return helper
+
 def json_response(f):
     async def helper(document, request, payload):
         document = await f(document, request, payload)
@@ -140,20 +171,37 @@ async def handle(loop):
     app = web.Application(loop=loop, middlewares=[cors_factory])
     routes = web.RouteTableDef()
 
-    @routes.post('/login')
+    @routes.post('/api/public/login')
     @json_response
     def login(request):
         body = await request.json()
         print('body:', body)
         return {'login': 'ok'}
 
-    @routes.post('/test')
+    @routes.post('/api/public/test')
     @jwt_auth
     @json_response
     async def handle_post_test(document, *args):
         return {'test': 'ok'}
 
-    @routes.post('/{col}')
+    @routes.get('/api/default/{col}/{_id}')
+    @jwt_auth
+    @is_owner
+    @get
+    @json_response
+    async def handle_get(document):      
+        return document
+
+    @routes.put('/api/default/{col}/{_id}/{push}')
+    @jwt_auth
+    @is_owner
+    @validate_push
+    @push
+    @json_response
+    async def handle_push(document, request, payload):      
+        return document
+
+    @routes.post('/api/default/{col}')
     @jwt_auth
     @validate
     @insert
@@ -161,7 +209,7 @@ async def handle(loop):
     async def handle_post(document, request, payload):
         return document       
     
-    @routes.put('/{col}/{_id}')
+    @routes.put('/api/default/{col}/{_id}')
     @jwt_auth
     @is_owner
     @validate
@@ -171,8 +219,9 @@ async def handle(loop):
         return document
 
     app.router.add_routes(routes)
-    await loop.create_server(app.make_handler(), '0.0.0.0', 8089, ssl=None)
+    await loop.create_server(app.make_handler(), '0.0.0.0', 8089)
 
+"""
 @method
 async def add(user, a, b):
     return a + b
@@ -186,12 +235,13 @@ async def increment(user, id, value):
 def x_less_than(user, max):
     return r.table('test').filter(lambda row: (row['x'] < max))
     #return r.table('test').filter(lambda row: (row['x'] < max) & (row['user_id'] == user.id))
+"""
 
 def main():    
     loop = asyncio.get_event_loop()
     loop.run_until_complete(handle(loop))
     print("Server started at port 8089")
-    loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888, ssl=None))
-    print("Real time server started at port 8888")
+    #loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888))
+    #print("Real time server started at port 8888")
     loop.run_forever()
     loop.close()
