@@ -25,11 +25,21 @@ Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9s
 
 ###
 
-PUT http://localhost:8089/api/default/abc/5bc0a2d1ace5e6005f5ca312/nested
+PUT http://localhost:8089/api/default/abc/5bc0a2d1ace5e6005f5ca312/push/nested
 content-type: application/json
 Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM
 
 {
     "c": false,
     "d": "insert coin"
+}
+
+###
+
+PUT http://localhost:8089/api/default/abc/5bc0a2d1ace5e6005f5ca312/pull/nested
+content-type: application/json
+Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM
+
+{
+    "_id": "5bc0d042ace5e600dc5fa3c3"
 }

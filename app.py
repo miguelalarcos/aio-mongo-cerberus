@@ -29,7 +29,6 @@ ALLOWED_HEADERS = ','.join((
 """    
 
 def set_cors_headers (request, response):
-    print('>>>', response)
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
@@ -113,7 +112,6 @@ def validate_push(f):
     async def helper(request, payload):
         col = request.match_info.get('col')
         attr = request.match_info.get('push')
-        print('*'*5, col + '_' + attr)
         validator = validators[col + '_' + attr]
         document = await request.json()             
         if validator.validate(document):
@@ -157,7 +155,6 @@ def insert(f):
     async def helper(document, request, payload):
         col = request.match_info.get('col')
         document = await f(document, request, payload)
-        print('document en insert', document)
         document['__owner'] = payload['user']   
         result = await db[col].insert_one(document)
         document['_id'] = str(result.inserted_id)
@@ -182,17 +179,26 @@ def push(f):
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         attr = request.match_info.get('push')
-        print(_id, col, attr)
         document['_id'] = ObjectId()
-        print(document)
         await db[col].update_one({'_id': ObjectId(_id)}, {'$push': {attr: document}})        
         document['_id'] = str(document['_id'])
         return web.json_response(document)
     return helper
 
+def pull(f):
+    async def helper(request, payload):
+        document = await request.json()
+        await f(document, request, payload)
+        _id = request.match_info.get('_id')
+        col = request.match_info.get('col')
+        attr = request.match_info.get('pull')
+        document["_id"] = ObjectId(document["_id"])
+        await db[col].update_one({'_id': ObjectId(_id)}, {'$pull': {attr: document}})        
+        return web.json_response({})
+    return helper
+
 def json_response(f):
     async def helper(document, request, payload):
-        print('inicio de json response')
         document = await f(document, request, payload)
         return web.json_response(document)
     return helper
@@ -220,7 +226,7 @@ async def handle(loop):
     async def handle_get(document):      
         return document
 
-    @routes.put('/api/default/{col}/{_id}/{push}')
+    @routes.put('/api/default/{col}/{_id}/push/{push}')
     @jwt_auth
     @is_owner
     @validate_push
@@ -228,12 +234,18 @@ async def handle(loop):
     async def handle_push(document, request, payload):      
         return document
 
+    @routes.put('/api/default/{col}/{_id}/pull/{pull}')
+    @jwt_auth
+    @is_owner
+    @pull
+    async def handle_pull(document, request, payload):      
+        print('$pull')
+
     @routes.post('/api/default/{col}')
     @jwt_auth
     @validate()
     @insert
     async def handle_post(document, request, payload):
-        print('el documento que se devuelve es', document)
         return document       
     
     @routes.put('/api/default/{col}/{_id}')
