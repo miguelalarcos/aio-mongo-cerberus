@@ -1,4 +1,6 @@
-GET http://localhost:8089/api/default/abc/ 
+GET http://localhost:8089/api/default/abc/5bc0a2d1ace5e6005f5ca312
+content-type: application/json
+Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM
 
 ###
 
@@ -9,4 +11,14 @@ Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9s
 {
     "a": 5,
     "b": "hello ;)"
+}
+
+###
+
+PUT http://localhost:8089/api/default/abc/5bc0a2d1ace5e6005f5ca312
+content-type: application/json
+Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM
+
+{
+    "a": 555
 }

@@ -141,7 +141,10 @@ def get(f):
     async def helper(request, payload):
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
-        return f(await db[col].find_one({'_id': ObjectId(_id)}))
+        document = await db[col].find_one({'_id': ObjectId(_id)})
+        document = await f(document)
+        document['_id'] = str(document['_id'])
+        return web.json_response(document)
     return helper
 
 def insert(f):
@@ -158,21 +161,24 @@ def insert(f):
 
 def update(f):
     async def helper(document, request, payload):
-        original = document
+        document = await f(document, request, payload)
         document = flatten(document, reducer=point_reducer)
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         await db[col].update_one({'_id': ObjectId(_id)}, {'$set': document})        
-        return await f(original, request, payload)
+        document['_id'] = _id
+        return web.json_response(document)
     return helper
 
 def push(f):
     async def helper(document, request, payload):
+        document = await f(document, request, payload)
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         attr = request.match_info.get('push')
         await db[col].update_one({'_id': ObjectId(_id)}, {'$push': {[attr]: document}})        
-        return await f(document, request, payload)
+        document['_id'] = _id
+        return web.json_response(document)
     return helper
 
 def json_response(f):
@@ -203,7 +209,7 @@ async def handle(loop):
     @jwt_auth
     @is_owner
     @get
-    @json_response
+    #@json_response
     async def handle_get(document):      
         return document
 
@@ -212,7 +218,7 @@ async def handle(loop):
     @is_owner
     @validate_push
     @push
-    @json_response
+    #@json_response
     async def handle_push(document, request, payload):      
         return document
 
@@ -230,7 +236,7 @@ async def handle(loop):
     @is_owner
     @validate
     @update
-    @json_response
+    #@json_response
     async def handle_put(document, request, payload):      
         return document
 
