@@ -17,6 +17,7 @@ r.set_loop_type("asyncio")
 DB = os.getenv("DB")
 RT = os.getenv("RT")
 
+"""
 ALLOWED_HEADERS = ','.join((
     'content-type',
     'accept',
@@ -25,6 +26,7 @@ ALLOWED_HEADERS = ','.join((
     'x-requested-with',
     'x-csrftoken',
     ))
+"""    
 
 def set_cors_headers (request, response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -58,15 +60,23 @@ def point_reducer(k1, k2):
 #headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
 #headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'        
 
+"""
 schema = {'name': {'type': 'string'}, 
           'contact': {
             'type': 'dict', 'schema': {
                 'email': {'type': 'string'},
                 'phone': {'type': 'string'}
             }}}
-v_car = Validator(schema)
+"""
 
-validators = {'car': v_car}
+schema = {
+    'a': {'type': 'integer'},
+    'b': {'type': 'string'}
+}
+
+v_abc = Validator(schema)
+
+validators = {'abc': v_abc}
 
 def jwt_auth(f):
     async def helper(request):
@@ -182,7 +192,7 @@ async def handle(loop):
     @jwt_auth
     @json_response
     async def handle_post_test(document, *args):
-        return {'test': 'ok'}
+        return document
 
     @routes.get('/api/default/{col}/{_id}')
     @jwt_auth

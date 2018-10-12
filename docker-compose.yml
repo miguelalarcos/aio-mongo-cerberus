@@ -4,12 +4,12 @@ services:
     build: .
     environment:
     - DB=db
-    - RT=real_time
+    #- RT=real_time
     stdin_open: true
     tty: true
     ports:
     - "8089:8089"
-    - "8888:8888"
+    #- "8888:8888"
     volumes:
     - /home/miguel/dev/python3.6-projects/asyncio-1:/usr/src/app
     command: python -m watchgod app.main
@@ -21,10 +21,10 @@ services:
     - "27017:27017"
     volumes:
     - '/home/miguel/data/db1:/data/db'
-  real_time:
-    image: rethinkdb
-    ports:
-      - "28015:28015"
-      - "8080:8080"
-    volumes:
-      - '/home/miguel/data/rt1:/data'
+  #real_time:
+  #  image: rethinkdb
+  #  ports:
+  #    - "28015:28015"
+  #    - "8080:8080"
+  #  volumes:
+  #    - '/home/miguel/data/rt1:/data'
