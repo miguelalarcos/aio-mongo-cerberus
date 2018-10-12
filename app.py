@@ -77,7 +77,14 @@ schema = {
 
 v_abc = Validator(schema)
 
-validators = {'abc': v_abc}
+schema_nested = {
+    'c': {'type': 'boolean'},
+    'd': {'type': 'string'}
+}
+
+v_nested = Validator(schema_nested)
+
+validators = {'abc': v_abc, 'abc_nested': v_nested}
 
 def jwt_auth(f):
     async def helper(request):
@@ -89,31 +96,30 @@ def jwt_auth(f):
             return {'error': 'not valid jwt'}
     return helper
 
-def validate(f):
-    async def helper(request, payload):
-        col = request.match_info.get('col')
-        validator = validators[col]
-        document = await request.json()             
-        if validator.validate(document):
-            #document['__owner'] = payload['user']   
-            return await f(document, request, payload)
-        else:
-            #return web.json_response({'error': 'not valid document'}, headers=headers) 
-            return {'error': 'not valid document'}
-    return helper
+def validate(update=False):
+    def decorator(f):
+        async def helper(request, payload):
+            col = request.match_info.get('col')
+            validator = validators[col]
+            document = await request.json()             
+            if validator.validate(document, update=update):
+                return await f(document, request, payload)
+            else:
+                return web.json_response({'error': 'not valid document'})                 
+        return helper
+    return decorator
 
 def validate_push(f):
     async def helper(request, payload):
         col = request.match_info.get('col')
         attr = request.match_info.get('push')
-        validator = validators[attr]
+        print('*'*5, col + '_' + attr)
+        validator = validators[col + '_' + attr]
         document = await request.json()             
         if validator.validate(document):
-            #document['__owner'] = payload['user']   
             return await f(document, request, payload)
         else:
-            #return web.json_response({'error': 'not valid document'}, headers=headers) 
-            return {'error': 'not valid document'}
+            return web.json_response({'error': 'not valid document'}) 
     return helper
 
 def has_role(role):
@@ -176,8 +182,11 @@ def push(f):
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         attr = request.match_info.get('push')
-        await db[col].update_one({'_id': ObjectId(_id)}, {'$push': {[attr]: document}})        
-        document['_id'] = _id
+        print(_id, col, attr)
+        document['_id'] = ObjectId()
+        print(document)
+        await db[col].update_one({'_id': ObjectId(_id)}, {'$push': {attr: document}})        
+        document['_id'] = str(document['_id'])
         return web.json_response(document)
     return helper
 
@@ -185,7 +194,7 @@ def json_response(f):
     async def helper(document, request, payload):
         print('inicio de json response')
         document = await f(document, request, payload)
-        return web.json_response(document)#, headers=headers)
+        return web.json_response(document)
     return helper
 
 async def handle(loop):
@@ -196,8 +205,7 @@ async def handle(loop):
     @json_response
     async def login(request):
         body = await request.json()
-        print('body:', body)
-        return {'login': 'ok'}
+        return {'jwt': 'xyz'}
 
     @routes.post('/api/public/test')
     @jwt_auth
@@ -209,7 +217,6 @@ async def handle(loop):
     @jwt_auth
     @is_owner
     @get
-    #@json_response
     async def handle_get(document):      
         return document
 
@@ -218,15 +225,13 @@ async def handle(loop):
     @is_owner
     @validate_push
     @push
-    #@json_response
     async def handle_push(document, request, payload):      
         return document
 
     @routes.post('/api/default/{col}')
     @jwt_auth
-    @validate
+    @validate()
     @insert
-    #@json_response
     async def handle_post(document, request, payload):
         print('el documento que se devuelve es', document)
         return document       
@@ -234,9 +239,8 @@ async def handle(loop):
     @routes.put('/api/default/{col}/{_id}')
     @jwt_auth
     @is_owner
-    @validate
+    @validate(update=True)
     @update
-    #@json_response
     async def handle_put(document, request, payload):      
         return document
 
