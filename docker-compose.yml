@@ -11,7 +11,7 @@ services:
     - "8089:8089"
     #- "8888:8888"
     volumes:
-    - /home/miguel/dev/python3.6-projects/asyncio-1:/usr/src/app
+    - /home/miguel/dev/python-projects/aio-mongo-cerberus:/usr/src/app
     command: python -m watchgod app.main
     links:
     - db

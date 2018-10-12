@@ -2,7 +2,7 @@ import asyncio
 from aiohttp import web
 import websockets
 from msdp import sdp, method, sub, get_connection
-from rethinkdb import r
+#from rethinkdb import r
 from cerberus import Validator
 import jwt
 from flatten_dict import flatten
@@ -12,10 +12,10 @@ import os
 #from dotenv import load_dotenv 
 #load_dotenv()
 
-r.set_loop_type("asyncio")
+#r.set_loop_type("asyncio")
 
 DB = os.getenv("DB")
-RT = os.getenv("RT")
+#RT = os.getenv("RT")
 
 """
 ALLOWED_HEADERS = ','.join((
@@ -29,6 +29,7 @@ ALLOWED_HEADERS = ','.join((
 """    
 
 def set_cors_headers (request, response):
+    print('>>>', response)
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
@@ -83,7 +84,8 @@ def jwt_auth(f):
         try:
             payload = jwt.decode(request.headers['Authorization'], 'secret', algorithms=['HS256'])
             return await f(request, payload)
-        except:
+        except Exception as e:
+            print('>>>', e)
             return {'error': 'not valid jwt'}
     return helper
 
@@ -146,10 +148,12 @@ def insert(f):
     async def helper(document, request, payload):
         col = request.match_info.get('col')
         document = await f(document, request, payload)
+        print('document en insert', document)
         document['__owner'] = payload['user']   
         result = await db[col].insert_one(document)
         document['_id'] = str(result.inserted_id)
-        return document #await f(document, request, payload)
+        return web.json_response(document)
+        #return document 
     return helper
 
 def update(f):
@@ -173,6 +177,7 @@ def push(f):
 
 def json_response(f):
     async def helper(document, request, payload):
+        print('inicio de json response')
         document = await f(document, request, payload)
         return web.json_response(document)#, headers=headers)
     return helper
@@ -183,7 +188,7 @@ async def handle(loop):
 
     @routes.post('/api/public/login')
     @json_response
-    def login(request):
+    async def login(request):
         body = await request.json()
         print('body:', body)
         return {'login': 'ok'}
@@ -215,8 +220,9 @@ async def handle(loop):
     @jwt_auth
     @validate
     @insert
-    @json_response
+    #@json_response
     async def handle_post(document, request, payload):
+        print('el documento que se devuelve es', document)
         return document       
     
     @routes.put('/api/default/{col}/{_id}')
