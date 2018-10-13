@@ -184,7 +184,13 @@ async def handle(loop):
     @json_response
     async def login(request):
         body = await request.json()
-        return {'jwt': 'xyz'}
+        user = body['user'] # fetch hashed from database
+        hashed = bcrypt.hashpw('123', bcrypt.gensalt())
+        password = body['password']
+        if bcrypt.checkpw(password, hashed):
+            return {'status': 'ok', 'jwt': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM'}
+        else:
+            return {'status': 'failed'}
 
     @routes.post('/api/public/test')
     @jwt_auth
