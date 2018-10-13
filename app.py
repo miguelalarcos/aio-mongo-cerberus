@@ -187,12 +187,13 @@ def push(f):
 
 def pull(f):
     async def helper(request, payload):
-        document = await request.json()
-        await f(document, request, payload)
+        #document = await request.json()
+        await f({}, request, payload)
         _id = request.match_info.get('_id')
         col = request.match_info.get('col')
         attr = request.match_info.get('pull')
-        document["_id"] = ObjectId(document["_id"])
+        sub_id = request.match_info.get('sub_id')
+        document = {'_id': ObjectId(sub_id)}
         await db[col].update_one({'_id': ObjectId(_id)}, {'$pull': {attr: document}})        
         return web.json_response({})
     return helper
@@ -234,7 +235,7 @@ async def handle(loop):
     async def handle_push(document, request, payload):      
         return document
 
-    @routes.put('/api/default/{col}/{_id}/pull/{pull}')
+    @routes.put('/api/default/{col}/{_id}/pull/{pull}/{sub_id}')
     @jwt_auth
     @is_owner
     @pull
