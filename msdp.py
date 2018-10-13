@@ -7,17 +7,14 @@ import websockets
 import jwt
 import json
 from datetime import datetime
-#import pytz
 from rethinkdb import r
-#from flatten_dict import flatten, unflatten
-#from dotenv import load_dotenv
-#import os
+import os
 
-#load_dotenv()
-#URI_DATABASE = os.getenv("URI_DATABASE")
+r.set_loop_type("asyncio")
+RT = os.getenv("RT")
 
 async def get_connection():
-    return await r.connect("real_time", 28015)
+    return await r.connect(RT, 28015)
 
 methods = {}
 
@@ -132,6 +129,7 @@ async def sdp(websocket, path):
         async for msg in websocket:
             #if msg == 'stop':
             #    return
+            print('raw>>>', msg)
             def helper(dct):
                 if '$date' in dct.keys():
                     d = datetime.utcfromtimestamp(dct['$date']/1000.0)

@@ -9,24 +9,10 @@ from flatten_dict import flatten
 import motor.motor_asyncio
 from bson import ObjectId
 import os
-#from dotenv import load_dotenv 
-#load_dotenv()
-
-#r.set_loop_type("asyncio")
+from rethinkdb import r
 
 DB = os.getenv("DB")
-#RT = os.getenv("RT")
-
-"""
-ALLOWED_HEADERS = ','.join((
-    'content-type',
-    'accept',
-    'origin',
-    'authorization',
-    'x-requested-with',
-    'x-csrftoken',
-    ))
-"""    
+RT = os.getenv("RT")
 
 def set_cors_headers (request, response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -54,20 +40,6 @@ def point_reducer(k1, k2):
     else:
         return k1 + "." + k2
 
-
-#headers = {}
-#headers['Access-Control-Allow-Origin'] = '*'
-#headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
-#headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'        
-
-"""
-schema = {'name': {'type': 'string'}, 
-          'contact': {
-            'type': 'dict', 'schema': {
-                'email': {'type': 'string'},
-                'phone': {'type': 'string'}
-            }}}
-"""
 
 schema = {
     'a': {'type': 'integer'},
@@ -260,7 +232,7 @@ async def handle(loop):
     app.router.add_routes(routes)
     await loop.create_server(app.make_handler(), '0.0.0.0', 8089)
 
-"""
+
 @method
 async def add(user, a, b):
     return a + b
@@ -273,14 +245,14 @@ async def increment(user, id, value):
 @sub
 def x_less_than(user, max):
     return r.table('test').filter(lambda row: (row['x'] < max))
-    #return r.table('test').filter(lambda row: (row['x'] < max) & (row['user_id'] == user.id))
-"""
+    #return r.table('test').filter(lambda row: (row['x'] < max) & (row['user_id'] == user['user']))
+
 
 def main():    
     loop = asyncio.get_event_loop()
     loop.run_until_complete(handle(loop))
     print("Server started at port 8089")
-    #loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888))
-    #print("Real time server started at port 8888")
+    loop.run_until_complete(websockets.serve(sdp, '0.0.0.0', 8888))
+    print("Real time server started at port 8888")
     loop.run_forever()
     loop.close()
