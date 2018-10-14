@@ -10,6 +10,7 @@ import motor.motor_asyncio
 from bson import ObjectId
 import os
 from rethinkdb import r
+import bcrypt
 
 DB = os.getenv("DB")
 RT = os.getenv("RT")
@@ -18,16 +19,22 @@ def set_cors_headers (request, response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
-    #response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    print('set_cors_headers', response)
     return response
 
 async def cors_factory (app, handler):
+    print('***', app, handler)
     async def cors_handler (request):
         # preflight requests
+        print(request)
         if request.method == 'OPTIONS':
+            print('inside OPTIONS')
             return set_cors_headers(request, web.Response())
         else:
+            print('inside normal api', handler)
             response = await handler(request)
+            print('after handler')
             return set_cors_headers(request, response)
     return cors_handler
 
@@ -171,9 +178,15 @@ def pull(f):
     return helper
 
 def json_response(f):
-    async def helper(document, request, payload):
-        document = await f(document, request, payload)
+    async def helper(request):
+        document = await f(request)
         return web.json_response(document)
+        #response = web.json_response(document)
+        #response.headers['Access-Control-Allow-Origin'] = '*'
+        #response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+        #response.headers['Access-Control-Allow-Headers'] = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+        #response.headers['Access-Control-Allow-Credentials'] = 'true'
+        #return response
     return helper
 
 async def handle(loop):
@@ -181,16 +194,17 @@ async def handle(loop):
     routes = web.RouteTableDef()
 
     @routes.post('/api/public/login')
-    @json_response
+    #@json_response
     async def login(request):
+        print('inside login')
         body = await request.json()
         user = body['user'] # fetch hashed from database
-        hashed = bcrypt.hashpw('123', bcrypt.gensalt())
-        password = body['password']
+        hashed = bcrypt.hashpw(b'123', bcrypt.gensalt())
+        password = body['password'].encode('utf8')
         if bcrypt.checkpw(password, hashed):
-            return {'status': 'ok', 'jwt': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM'}
+            return web.json_response({'status': 'ok', 'jwt': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM'})
         else:
-            return {'status': 'failed'}
+            return web.json_response({'status': 'failed'})
 
     @routes.post('/api/public/test')
     @jwt_auth
