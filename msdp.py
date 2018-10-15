@@ -138,7 +138,11 @@ async def sdp(websocket, path):
                 return dct
             data = json.loads(msg, object_hook=helper)
             print('>>>', data)
-            user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
+            payload = data.get('jwt')
+            if payload:
+                user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
+            else:
+                user = None
             print('>>>', user)
             try:
                 message = data['msg']

@@ -11,6 +11,7 @@ from bson import ObjectId
 import os
 from rethinkdb import r
 import bcrypt
+import time
 
 DB = os.getenv("DB")
 RT = os.getenv("RT")
@@ -198,11 +199,13 @@ async def handle(loop):
     async def login(request):
         print('inside login')
         body = await request.json()
-        user = body['user'] # fetch hashed from database
+        user = body['user'] # fetch hashed from database and roles
         hashed = bcrypt.hashpw(b'123', bcrypt.gensalt())
+        roles = ['basic', 'admin']
         password = body['password'].encode('utf8')
         if bcrypt.checkpw(password, hashed):
-            return web.json_response({'status': 'ok', 'jwt': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWlndWVsIiwicm9sZXMiOlsiYmFzaWMiLCJhZG1pbiJdfQ.v0u6CeUcanlNUBcX_rVDRDY2e6NCXshYZ7gHgsUTDKM'})
+            payload = jwt.encode({'user': user, 'roles': roles}, 'secret', algorithm='HS256').decode('utf-8')
+            return web.json_response({'status': 'ok', 'jwt': payload})
         else:
             return web.json_response({'status': 'failed'})
 
@@ -258,9 +261,44 @@ async def add(user, a, b):
     return a + b
 
 @method
+async def create(user):
+    connection = await get_connection()
+    await r.table('test').insert({'x': 0}).run(connection)
+
+@method
+async def create_room(user):
+    connection = await get_connection()
+    doc = await r.table('room').insert({'status': 'open'}).run(connection)
+    return doc['generated_keys'][0]
+
+@method
+async def new_message(user, room, msg):
+    connection = await get_connection()
+    await r.table('messages').insert({'room': room, 'msg': msg, 'timestampt': time.time(), 'user': user.user if user else ''}).run(connection)
+
+@method
 async def increment(user, id, value):
     connection = await get_connection()
     await r.table('test').get(id).update({"x": r.row["x"]+value}).run(connection)
+
+@sub
+def messages_of_room(user, room):
+    return r.table('messages').filter({'room': room})
+
+@method
+async def set_owner_of_room(user, room):
+    if user and 'admin' in user.roles:
+        connection = await get_connection()
+        await r.table('room').get(room).update({"owner": user.user}).run(connection)   
+
+@method
+async def close_room(user, room):
+    connection = await get_connection()
+    await r.table('room').get(room).update({"status": 'closed'}).run(connection)
+
+@sub
+def open_chat_rooms(user):
+    return r.table('room').filter({'status': 'open'})
 
 @sub
 def x_less_than(user, max):
