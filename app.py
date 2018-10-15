@@ -1,7 +1,7 @@
 import asyncio
 from aiohttp import web
 import websockets
-from msdp import sdp, method, sub, get_connection
+from msdp import sdp, method, sub, get_connection, check
 #from rethinkdb import r
 from cerberus import Validator
 import jwt
@@ -274,7 +274,7 @@ async def create_room(user):
 @method
 async def new_message(user, room, msg):
     connection = await get_connection()
-    await r.table('messages').insert({'room': room, 'msg': msg, 'timestampt': time.time(), 'user': user.user if user else ''}).run(connection)
+    await r.table('messages').insert({'room': room, 'msg': msg, 'timestampt': time.time(), 'user': user['user'] }).run(connection)
 
 @method
 async def increment(user, id, value):
@@ -285,11 +285,28 @@ async def increment(user, id, value):
 def messages_of_room(user, room):
     return r.table('messages').filter({'room': room})
 
+@sub
+def keyup_in_room(user, room):
+    if 'admin' in user['roles']:
+        return r.table('room').get(room).pluck('keyup')
+    else:
+        return r.table('room').get(room).pluck('keyup_admin')
+
 @method
 async def set_owner_of_room(user, room):
-    if user and 'admin' in user.roles:
+    if 'admin' in user['roles']:
         connection = await get_connection()
-        await r.table('room').get(room).update({"owner": user.user}).run(connection)   
+        await r.table('room').get(room).update({"owner": user['user']}).run(connection)   
+
+@method
+async def keyup(user, room, key):
+    check(room, str)
+    check(key, int)
+    connection = await get_connection()
+    if 'admin' in user['roles']:
+        await r.table('room').get(room).update({"keyup_admin": key}).run(connection)  
+    else:
+        await r.table('room').get(room).update({"keyup": key}).run(connection)  
 
 @method
 async def close_room(user, room):

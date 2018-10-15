@@ -44,9 +44,9 @@ def check(attr, type):
     if not isinstance(attr, type):
         raise CheckError(attr + ' is not of type ' + str(type))
 
-hooks = {'before_insert': [],
-         'before_update': []
-         }
+#hooks = {'before_insert': [],
+#         'before_update': []
+#         }
 
 class MethodError(Exception):
   pass
@@ -137,13 +137,11 @@ async def sdp(websocket, path):
                     #return d.replace(tzinfo=pytz.UTC)
                 return dct
             data = json.loads(msg, object_hook=helper)
-            print('>>>', data)
             payload = data.get('jwt')
             if payload:
                 user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
             else:
-                user = None
-            print('>>>', user)
+                user = {'user': None, roles: ['anonymous']}
             try:
                 message = data['msg']
                 id = data['id']
