@@ -138,7 +138,7 @@ async def handle_msg(msg, registered_feeds, send):
             else:
                 query = subs[id](user, **params)
                 registered_feeds[id] = get_event_loop().create_task(watch(id, query, send))
-                await send_ready(id, send)
+                await send_ready(id, send) #why??? creo que debe ser borrada
         elif message == 'unsub':
             if id in registered_feeds.keys():
                 feed = registered_feeds[id]
@@ -152,17 +152,19 @@ async def watch(sub_id, query, send):
     feed = await query.changes(include_states=True, include_initial=True).run(connection)
     while (await feed.fetch_next()):
         item = await feed.next()
-        print(item)
-        state = item.get('state')
-        if state == 'ready':
-            await send_ready(sub_id, send)
-        elif state == 'initializing':
-            await send_initializing(sub_id, send)
+        await handle_watch(item, sub_id, send)
+    
+async def handle_watch(item, sub_id, send):
+    state = item.get('state')
+    if state == 'ready':
+        await send_ready(sub_id, send)
+    elif state == 'initializing':
+        await send_initializing(sub_id, send)
+    else:
+        if item.get('old_val') is None:
+            await send_added(sub_id, item['new_val'], send)
+        elif item.get('new_val') is None: 
+            await send_removed(sub_id, item['old_val']['id'], send)
         else:
-            if item.get('old_val') is None:
-                await send_added(sub_id, item['new_val'], send)
-            elif item.get('new_val') is None: 
-                await send_removed(sub_id, item['old_val']['id'], send)
-            else:
-                await send_changed(sub_id, item['new_val'], send)           
+            await send_changed(sub_id, item['new_val'], send)           
 
