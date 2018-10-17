@@ -138,7 +138,7 @@ async def handle_msg(msg, registered_feeds, send):
             else:
                 query = subs[id](user, **params)
                 registered_feeds[id] = get_event_loop().create_task(watch(id, query, send))
-                await send_ready(id, send) #why??? creo que debe ser borrada
+                await send_ready(id, send) 
         elif message == 'unsub':
             if id in registered_feeds.keys():
                 feed = registered_feeds[id]
@@ -153,11 +153,13 @@ async def handle_msg(msg, registered_feeds, send):
         await send_error(id, str(e), send)
 
 async def watch(sub_id, query, send): 
+    print('watch called', sub_id, id(query))
     connection = await get_connection()
-    
+    print('get connection done')
     feed = await query.changes(include_states=True, include_initial=True).run(connection)
     while (await feed.fetch_next()):
         item = await feed.next()
+        print(item)
         await handle_watch(item, sub_id, send)
     
 async def handle_watch(item, sub_id, send):

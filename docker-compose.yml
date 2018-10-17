@@ -15,6 +15,10 @@ services:
     command: python -m watchgod app.main
     links:
     - db
+    - real_time
+    depends_on:
+    - db
+    - real_time
   db:
     image: mongo
     ports:
