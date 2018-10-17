@@ -8,11 +8,15 @@ from msdp import handle_msg, method, sub
 async def add(user, a, b):
     return a + b
 
+@method
+async def with_exception_method(user):
+    raise Exception('x')
+
 @sub
 def sub_1(user):
     return {}
 
-class MyTest(aiounittest.AsyncTestCase):
+class HandleTest(aiounittest.AsyncTestCase):
     
     async def test_no_method(self):
         msg = '{"msg": "method", "id": 0, "params": {}, "method": "abc"}'
@@ -54,3 +58,38 @@ class MyTest(aiounittest.AsyncTestCase):
                 await handle_msg(msg, {}, send)
                 mock_watch.assert_called_with('sub_1', {}, send)
 
+    async def test_error_json_loads(self):
+        msg = '{'
+        m = MagicMock()
+        async def send(*args, **kwargs):
+            m(*args, **kwargs)
+        
+        await handle_msg(msg, {}, send)
+        m.assert_called_with({'msg': 'error', 'id': None, 'error': 'error in json.loads'})
+
+    async def test_error_keyerror(self):
+        msg = '{}'
+        m = MagicMock()
+        async def send(*args, **kwargs):
+            m(*args, **kwargs)
+        
+        await handle_msg(msg, {}, send)
+        m.assert_called_with({'msg': 'error', 'id': None, 'error': "key error 'msg'"})
+
+    async def test_error_jwt(self):
+        msg = '{"jwt": "..."}'
+        m = MagicMock()
+        async def send(*args, **kwargs):
+            m(*args, **kwargs)
+        
+        await handle_msg(msg, {}, send)
+        m.assert_called_with({'msg': 'error', 'id': None, 'error': "error decode jwt"})
+
+    async def test_method_with_exception(self):
+        msg = '{"msg": "method", "id": 0, "params": {}, "method": "with_exception_method"}'
+        m = MagicMock()
+        async def send(*args, **kwargs):
+            m(*args, **kwargs)
+        
+        await handle_msg(msg, {}, send)
+        m.assert_called_with({'msg': 'error', 'id': 0, 'error': "x"})

@@ -112,15 +112,22 @@ def helper(dct):
 
 async def handle_msg(msg, registered_feeds, send):
     print('raw>>>', msg)
-    data = json.loads(msg, object_hook=helper)
+    try:
+        data = json.loads(msg, object_hook=helper)
+    except:
+        return await send_error(None, 'error in json.loads', send)
+    
+    id = data.get('id')
     payload = data.get('jwt')
     if payload:
-        user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
+        try:
+            user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
+        except jwt.DecodeError:
+            return await send_error(id, 'error decode jwt', send)
     else:
         user = None
     try:
-        message = data['msg']
-        id = data['id']
+        message = data['msg']        
 
         if message == 'method':
             params = data['params']
@@ -144,6 +151,8 @@ async def handle_msg(msg, registered_feeds, send):
                 feed = registered_feeds[id]
                 feed.cancel()
     except KeyError as e:
+        await send_error(id, 'key error ' + str(e), send)
+    except Exception as e:
         await send_error(id, str(e), send)
 
 async def watch(sub_id, query, send): 
