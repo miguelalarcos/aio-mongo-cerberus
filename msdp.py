@@ -114,19 +114,12 @@ async def handle_msg(msg, registered_feeds, send):
     print('raw>>>', msg)
     try:
         data = json.loads(msg, object_hook=helper)
-    except:
-        return await send_error(None, 'error in json.loads', send)
-    
-    id = data.get('id')
-    payload = data.get('jwt')
-    if payload:
-        try:
+        id = data.get('id')
+        payload = data.get('jwt')
+        if payload:
             user = jwt.decode(data['jwt'], 'secret', algorithms=['HS256'])
-        except jwt.DecodeError:
-            return await send_error(id, 'error decode jwt', send)
-    else:
-        user = None
-    try:
+        else:
+            user = None
         message = data['msg']        
 
         if message == 'method':
@@ -152,6 +145,10 @@ async def handle_msg(msg, registered_feeds, send):
                 feed.cancel()
     except KeyError as e:
         await send_error(id, 'key error ' + str(e), send)
+    except json.decoder.JSONDecodeError:
+        await send_error(None, 'error in json.loads', send)
+    except jwt.DecodeError:
+        await send_error(id, 'error decode jwt', send)
     except Exception as e:
         await send_error(id, str(e), send)
 
